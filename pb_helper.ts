@@ -6,7 +6,7 @@ import PocketBase from "pb";
  */
 export async function getAdminPocketBase(): Promise<PocketBase | null> {
   try {
-    const pb = new PocketBase(Deno.env.get("PB_URL") as string);
+    const pb: PocketBase = new PocketBase(Deno.env.get("PB_URL") as string);
 
     const username = Deno.env.get("PB_USERNAME_ADMIN") ?? "";
     const password = Deno.env.get("PB_PASSWORD_ADMIN") ?? "";

@@ -1,22 +1,25 @@
 import { Handlers, PageProps } from "$fresh/server.ts";
-import { parseFeed } from "https://deno.land/x/rss/mod.ts";
+import { parseFeed } from "https://deno.land/x/rss@0.5.8/mod.ts";
 
 import { getAdminPocketBase } from "../../pb_helper.ts";
 import ColoredButton from "../../components/Button.tsx";
 import Input from "../../components/Input.tsx";
 import Header from "../../components/Header.tsx";
+import PocketBase from "pb";
 
 interface FeedData {
   url: string;
   title: string;
   site_url: string;
+  last_visited: Date;
+  new_post_count: number;
 }
 
 interface PageData {
   error: string;
 }
 
-const pb = await getAdminPocketBase();
+const pb: PocketBase = await getAdminPocketBase();
 export const handler: Handlers = {
   async POST(req, ctx) {
     const form = await req.formData();
@@ -52,45 +55,41 @@ export default async function Feeds(props: PageProps<PageData>) {
     );
   }
 
-  const records = await pb.collection("feeds").getFullList<FeedData>({
+  const records: Array<FeedData> = await pb.collection("feeds").getFullList<
+    FeedData
+  >({
     sort: "-created",
   });
 
-  const feed_data = await (await fetch(records[0].url)).text();
-  const parsedFeed = await parseFeed(feed_data);
-  console.log(parsedFeed.title);
+  if (records.length > 0) {
+    const feed_data = await (await fetch(records[0].url)).text();
+    const parsedFeed = await parseFeed(feed_data);
+    await pb.collection("feeds")
+    console.log(
+      parsedFeed.title,
+      parsedFeed.updateDate,
+      parsedFeed.entries[0].published,
+    );
+    if (
+      records[0].last_visited < (parsedFeed.entries[0].published ?? new Date())
+    ) {
+      console.log("gottem");
+      records[0].new_post_count = (records[0].new_post_count ?? 0) + 1;
+    }
+  }
 
   return (
-    <div>
+    <div class="overflow-hidden">
       <Header active="home" />
       {new URL(props.url).searchParams?.get("error") === "bad_url" && (
         <div class={"text-red"}>Bad URL :(</div>
       )}
-      {records.map((f) => (
-        <div>
+      {records?.map((f: FeedData) => (
+        <div class="p-10">
           <a href={f.site_url}>{f.title || "Whoops"}</a>
+          {f.new_post_count && (<p>New posts: {f.new_post_count}</p>)}
         </div>
       ))}
-
-      {/* <form method="post">
-        <div class="flex flex-col w-1/2 gap-1">
-          <Input
-            disabled={false}
-            type="text"
-            name="title"
-            value=""
-            placeholder={"title"}
-          />
-          <Input
-            disabled={false}
-            type="text"
-            name="feed_url"
-            value=""
-            placeholder={"url"}
-          />
-          <ColoredButton>Add New Feed</ColoredButton>
-        </div>
-      </form> */}
     </div>
   );
 }
